@@ -474,6 +474,15 @@
     - id: tools
       name: '@deepseek-ai/dsh-tools'
 
+    # Activator for the `mcp-servers` settings namespace owned by the
+    # browser Settings → MCP servers page (`@deepseek-ai/dsh-client-ui-mcp-servers`).
+    # Reads the section on startup and on every `settings/updated` emission;
+    # for each enabled entry, spawns a `@deepseek-ai/dsh-mcp-client` plugin
+    # instance in a child cordis context. Adding/removing/toggling/editing a
+    # server in the UI propagates live to the running mcp-client instances.
+    - id: mcp-servers-activator
+      name: '@deepseek-ai/dsh-mcp-servers-activator'
+
     # The deployment persona is a deployment choice; plan-mode and tool plugins own
     # their own prompt sections.
     - id: system-prompt

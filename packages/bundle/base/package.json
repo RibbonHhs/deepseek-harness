@@ -83,6 +83,7 @@
     "@deepseek-ai/dsh-session-title": "workspace:^",
     "@deepseek-ai/dsh-session-title-first-prompt-llm": "workspace:^",
     "@deepseek-ai/dsh-settings-file": "workspace:^",
+    "@deepseek-ai/dsh-mcp-servers-activator": "workspace:^",
     "@deepseek-ai/dsh-skill": "workspace:^",
     "@deepseek-ai/dsh-skill-badge": "workspace:^",
     "@deepseek-ai/dsh-skill-filesystem": "workspace:^",

@@ -178,8 +178,21 @@
     - id: ui-layout
       name: '@deepseek-ai/dsh-client-ui-layout'
 
+    # MCP servers settings: top-level settings.section entry "MCP servers" with
+    # CRUD over the `mcp-servers` namespace. The host-side activator
+    # (@deepseek-ai/dsh-mcp-servers-activator, in the base bundle) reads the
+    # same namespace and instantiates mcp-client plugins for enabled entries.
+    - id: ui-mcp-servers
+      name: '@deepseek-ai/dsh-client-ui-mcp-servers'
+
     - id: ui-renderer
       name: '@deepseek-ai/dsh-client-ui-renderer'
+
+    # Peer module: pure-data zustand/immer engine. No `apply`; externalized by
+    # every bundle that imports `defineStore` / `createSnapshotStore`, so the
+    # module table must carry a row.
+    - id: store
+      name: '@deepseek-ai/dsh-client-store'
 
     - id: ui-session
       name: '@deepseek-ai/dsh-client-ui-session'
@@ -207,6 +220,9 @@
 
     - id: ui-chat
       name: '@deepseek-ai/dsh-client-ui-chat'
+
+    - id: ui-prompt-manager
+      name: '@deepseek-ai/dsh-client-ui-prompt-manager'
 
     # Official occupants for the generic sidebar and conversation brand slots.
     - id: ui-brand-official

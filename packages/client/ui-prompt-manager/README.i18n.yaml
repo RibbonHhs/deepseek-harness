@@ -1,0 +1,3 @@
+# README bilingual metadata: declared once, consumed by i18n tooling.
+en: README.md
+zh: README.zh.md

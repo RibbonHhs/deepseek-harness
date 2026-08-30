@@ -7,6 +7,7 @@
  * update/set, NO selector hook. Hook synthesis is ui-renderer's (the one
  * uSES bridge, cached per source at the binding site).
  */
+import type { Context } from '@deepseek-ai/cordis'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { subscribeWithSelector } from 'zustand/middleware'
 import { shallow } from 'zustand/shallow'
@@ -14,6 +15,14 @@ import { freeze, produce } from 'immer'
 import type {
   ActionsDecl, BakedActions, ObservableSnapshot, StoreHandle, StoreInstance, StoreSpec,
 } from './contract.ts'
+
+/**
+ * No-op plugin body for the host cordis loader. The store is a peer module —
+ * its value exports (defineStore, createSnapshotStore, ...) are consumed by
+ * other packages' bundles, not applied to a host context — but the loader
+ * still requires every entry to expose `apply` so it accepts the registration.
+ */
+export function apply(_ctx: Context): void {}
 
 // Store contract types are ui-slots authority; re-exported beside the engine
 // so store consumers get one import path.
