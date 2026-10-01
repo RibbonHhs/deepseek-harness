@@ -22,7 +22,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent } from 'react'
-import { Button, IconSearchOutline16, Input } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconSearchOutlineRegular, Input } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import { collectVariables, interpolate } from '../schema.ts'
 import type { PromptListItem } from './store.ts'
@@ -111,7 +111,7 @@ export function PromptPickerPopover(props: PromptPickerPopoverProps) {
         </header>
         <div className={styles.searchRow}>
           <Input
-            icon={<IconSearchOutline16 />}
+            icon={<IconSearchOutlineRegular />}
             value={query}
             placeholder={t('pickerSearch')}
             onChange={(event: ChangeEvent<HTMLInputElement>) => { setQuery(event.target.value) }}

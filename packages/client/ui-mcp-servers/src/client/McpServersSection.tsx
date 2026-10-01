@@ -14,8 +14,8 @@
 
 import { useEffect, useState } from 'react'
 import {
-  Button, IconEditOutline16, IconPlusOutline16, IconSearchOutline16,
-  IconTrashOutline16, Input, Modal, Pill,
+  Button, IconEditOutlineRegular, IconPlusOutlineRegular, IconSearchOutlineRegular,
+  IconTrashOutlineRegular, Input, Modal, Pill,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
 import type { McpServersStore, McpServersState, McpServerListItem } from './store.ts'
@@ -141,7 +141,7 @@ export function McpServersSection(props: McpServersSectionProps) {
       <div className={styles.controls}>
         <div className={styles.search}>
           <Input
-            icon={<IconSearchOutline16 />}
+            icon={<IconSearchOutlineRegular />}
             value={state.query}
             placeholder={t('search')}
             onChange={(event) => { controller.setQuery(event.target.value) }}
@@ -149,7 +149,7 @@ export function McpServersSection(props: McpServersSectionProps) {
         </div>
         <Button
           variant="primary"
-          icon={<IconPlusOutline16 />}
+          icon={<IconPlusOutlineRegular />}
           onClick={() => { setEditing({ id: '', record: undefined }) }}
         >
           {t('newServer')}
@@ -200,14 +200,14 @@ export function McpServersSection(props: McpServersSectionProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                icon={<IconEditOutline16 />}
+                icon={<IconEditOutlineRegular />}
                 aria-label={t('editServer', { title: item.record.name })}
                 onClick={() => { setEditing({ id: item.id, record: item.record }) }}
               />
               <Button
                 variant="ghost"
                 size="sm"
-                icon={<IconTrashOutline16 />}
+                icon={<IconTrashOutlineRegular />}
                 aria-label={t('deleteServer', { title: item.record.name })}
                 onClick={() => { setConfirmDelete(item) }}
               />

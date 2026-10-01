@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useState } from 'react'
-import { Button, IconListPenOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconListPenOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PromptListItem, PromptsStore, PromptsState } from './store.ts'
 import { PromptPickerPopover } from './PromptPickerPopover.tsx'
@@ -80,7 +80,7 @@ export function PromptInsertButton(props: PromptInsertButtonProps) {
       <Button
         variant="ghost"
         size="sm"
-        icon={<IconListPenOutline16 size={14} />}
+        icon={<IconListPenOutlineRegular size={14} />}
         className={styles.promptsChip}
         aria-label={t('buttonLabel')}
         aria-haspopup="dialog"

@@ -11,8 +11,8 @@
 
 import { useEffect, useState } from 'react'
 import {
-  Button, IconEditOutline16, IconPlusOutline16,
-  IconSearchOutline16, IconTrashOutline16, Input, Modal, Pill,
+  Button, IconEditOutlineRegular, IconPlusOutlineRegular,
+  IconSearchOutlineRegular, IconTrashOutlineRegular, Input, Modal, Pill,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PromptsStore, PromptsState, PromptListItem } from './store.ts'
@@ -91,7 +91,7 @@ export function PromptsSection(props: PromptsSectionProps) {
       <div className={styles.controls}>
         <div className={styles.search}>
           <Input
-            icon={<IconSearchOutline16 />}
+            icon={<IconSearchOutlineRegular />}
             value={state.query}
             placeholder={t('search')}
             onChange={(event) => { controller.setQuery(event.target.value) }}
@@ -99,7 +99,7 @@ export function PromptsSection(props: PromptsSectionProps) {
         </div>
         <Button
           variant="primary"
-          icon={<IconPlusOutline16 />}
+          icon={<IconPlusOutlineRegular />}
           onClick={() => { setEditing({ id: '', record: undefined }) }}
         >
           {t('newPrompt')}
@@ -159,14 +159,14 @@ export function PromptsSection(props: PromptsSectionProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                icon={<IconEditOutline16 />}
+                icon={<IconEditOutlineRegular />}
                 aria-label={t('editPrompt', { title: item.record.title })}
                 onClick={() => { setEditing({ id: item.id, record: item.record }) }}
               />
               <Button
                 variant="ghost"
                 size="sm"
-                icon={<IconTrashOutline16 />}
+                icon={<IconTrashOutlineRegular />}
                 aria-label={t('deletePrompt', { title: item.record.title })}
                 onClick={() => { setConfirmDelete(item) }}
               />
