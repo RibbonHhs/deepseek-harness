@@ -261,6 +261,8 @@
     # module table must carry a row.
     - id: store
       name: '@deepseek-ai/dsh-client-store'
+      # upstream removed `apply`; disabled until a replacement plugin lands.
+      disabled: true
 
     - id: ui-session
       name: '@deepseek-ai/dsh-client-ui-session'
@@ -279,6 +281,8 @@
 
     - id: office-to-pdf
       name: '@deepseek-ai/dsh-office-to-pdf'
+      # upstream removed `apply`; disabled until a replacement plugin lands.
+      disabled: true
 
     # The right Sidebar's document tab: bounded file reads with selectable
     # Markdown, code, HTML, PDF, Office, and plain-text renderers.
