@@ -1,0 +1,243 @@
+/* Picker popover: centered modal-style overlay (the composer accessory
+   does not have a single visible trigger surface to anchor against, and
+   the centered layout matches the editor modal so the two feel like
+   siblings). The mask is the catchable click surface outside the panel;
+   Escape and the close button are the keyboard paths. */
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.mask {
+  position: absolute;
+  inset: 0;
+  background: var(--dsw-alias-mask-overlay);
+  backdrop-filter: blur(4px);
+}
+
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, calc(100vw - 48px));
+  max-height: calc(100vh - 96px);
+  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: 16px;
+  /* `--dsw-alias-card-bg` is not defined in this composition (verified in
+     `apps/web/dist/assets/index-*.css`), so falling back to it left the
+     panel transparent and made the picker look like a debug overlay.
+     `--dsw-alias-bg-layer-2` is the same surface the Modal primitive uses
+     and resolves to an opaque token in both themes. */
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--dsw-shadow-lv3);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.searchRow {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+}
+
+.list {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.listButton {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 16px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--dsw-alias-label-primary);
+}
+
+.listButton:hover,
+.listButton:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.listTitle {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.listId {
+  font-family: var(--dsw-font-mono);
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.listVariables {
+  font-family: var(--dsw-font-mono);
+  font-size: 11px;
+  color: var(--dsw-alias-label-secondary);
+  margin-top: 2px;
+}
+
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.back {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.back:hover,
+.back:focus-visible {
+  color: var(--dsw-alias-label-primary);
+}
+
+.detailHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detailTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.detailId {
+  font-family: var(--dsw-font-mono);
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.detailDescription {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dsw-alias-label-secondary);
+  line-height: 1.4;
+}
+
+.variablesSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: 12px;
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.variablesLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.variableList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.variableRow {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.variableName {
+  font-family: var(--dsw-font-mono);
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-alias-label-danger);
+}
+
+.previewSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.previewLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.preview {
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: 8px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--dsw-font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

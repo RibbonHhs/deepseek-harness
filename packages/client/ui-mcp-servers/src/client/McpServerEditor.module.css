@@ -1,0 +1,100 @@
+/* Override Modal's hardcoded 380px dialog width. Same specificity as the
+   shared .dialog rule, so source-order wins; align with the editor's
+   content density (transport tabs + URL/command inputs fit at 720px). */
+.editorDialog {
+  width: min(720px, 100%);
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.editorField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.editorLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.editorHint {
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.editorError {
+  font-size: 12px;
+  color: var(--dsw-alias-label-danger);
+}
+
+.editorTextarea {
+  width: 100%;
+  min-height: 64px;
+  padding: 8px;
+  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: 8px;
+  background: var(--dsw-alias-input-major);
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--dsw-font-mono);
+  font-size: 13px;
+  resize: vertical;
+}
+
+.editorTextarea:focus {
+  outline: none;
+  border-color: var(--dsw-alias-border-focus);
+}
+
+.transportTabs {
+  display: inline-flex;
+  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: 8px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.transportTab,
+.transportTabActive {
+  border: 0;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.transportTab:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.transportTabActive {
+  background: var(--dsw-alias-interactive-bg-active);
+  color: var(--dsw-alias-label-primary);
+}
+
+.enabledToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+.enabledToggle input {
+  cursor: pointer;
+}

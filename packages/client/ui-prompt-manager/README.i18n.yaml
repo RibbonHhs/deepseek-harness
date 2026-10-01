@@ -1,0 +1,25 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/client/ui-prompt-manager/README.md
+/deepseek-ai-dsh-client-ui-prompt-manager:
+  en: 0091538f3f6d714e
+  zh: 6d0c4d013295f496
+/deepseek-ai-dsh-client-ui-prompt-manager/features:
+  en: 6c3a9124887807d2
+  zh: 76186289e889fc25
+/deepseek-ai-dsh-client-ui-prompt-manager/architecture:
+  en: ec22c449ba919266
+  zh: 2f897c665bda35eb
+/deepseek-ai-dsh-client-ui-prompt-manager/integration:
+  en: f442d1d9c60eb5ef
+  zh: 2c6825f995ea1895
+/deepseek-ai-dsh-client-ui-prompt-manager/storage-shape:
+  en: 31e7cee26da13bc3
+  zh: cd7312840256c729
+/deepseek-ai-dsh-client-ui-prompt-manager/variable-interpolation:
+  en: 7cdd6c29a234efd8
+  zh: 9d6ea6363405453f
+/deepseek-ai-dsh-client-ui-prompt-manager/local-development:
+  en: d1bf8920c6b84c8a
+  zh: faea9663fe3f1dc0

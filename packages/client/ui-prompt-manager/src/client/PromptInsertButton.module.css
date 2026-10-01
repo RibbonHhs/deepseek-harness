@@ -1,0 +1,29 @@
+/* Composer accessory: a single toolbar button that opens the picker. The
+   root sits inline with the right-side controls so the conversation
+   composer keeps its row layout. */
+
+.root {
+  display: inline-flex;
+  position: relative;
+}
+
+/* Inline anchor wrapper around the button (Button is not a forwardRef
+   component, so the wrapper owns the ref `useAnchoredPosition` reads).
+   `display: contents` lets the wrapper adopt the button's intrinsic box
+   so the row layout stays unchanged. */
+.buttonAnchor {
+  display: contents;
+}
+
+/* Match the model-selection chip (ui-conversation InputBar.module.css
+   `.select`): same label-secondary color, 13px / 20px, weight 500. The
+   shipped Button primitive uses label-primary + 12/18 + 400, which is
+   one shade too heavy and one size larger than the composer chrome
+   around it; this class overrides those four properties so the prompt
+   accessory reads as part of the same chip family. */
+.promptsChip {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+}
