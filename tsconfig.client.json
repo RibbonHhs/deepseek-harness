@@ -47,7 +47,13 @@
   // belongs to the host aggregate, which excludes this program's `*.client.*`
   // in turn. `exclude` wins over `include`, so the test glob above stays broad.
   "exclude": [
-    "packages/client/*/tests/**/*.host.spec.ts"
+    "packages/client/*/tests/**/*.host.spec.ts",
+    // Local-only modules disabled from the web-app bundle; their src still
+    // references the pre-sync settings API (settingsNamespace /
+    // SettingsScope / SettingsForms.register) and would otherwise fail
+    // this client aggregate. Re-enable when the modules are adapted.
+    "packages/client/ui-mcp-servers/**",
+    "packages/client/ui-prompt-manager/**"
   ],
   "references": [
     { "path": "./packages/client/product-analytics/tsconfig.client.json" },
@@ -90,7 +96,6 @@
     { "path": "./packages/client/ui-shortcuts" },
     { "path": "./packages/client/ui-layout" },
     { "path": "./packages/client/ui-login" },
-    { "path": "./packages/client/ui-mcp-servers" },
     { "path": "./packages/client/ui-sidebar" },
     { "path": "./packages/client/ui-brand-official" },
     { "path": "./packages/client/ui-approval" },
@@ -136,7 +141,6 @@
     { "path": "./packages/client/ui-settings-general/tsconfig.client.json" },
     { "path": "./packages/client/ui-settings-models" },
     { "path": "./packages/client/ui-plugin-manager/tsconfig.client.json" },
-    { "path": "./packages/client/ui-prompt-manager" },
     { "path": "./packages/client/ui-settings-plugin-inventory" },
     { "path": "./packages/client/locale/tsconfig.client.json" },
     { "path": "./packages/client/ui-renderer" },

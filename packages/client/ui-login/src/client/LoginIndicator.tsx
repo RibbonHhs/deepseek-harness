@@ -22,7 +22,7 @@
  */
 
 import {
-  IconCloseOutline16, IconSettingsOutline16, IconUserOutline16, Menu,
+  IconCloseOutlineRegular, IconSettingsOutlineRegular, IconUserOutlineRegular, Menu,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
@@ -106,14 +106,14 @@ export function LoginIndicator(props: LoginIndicatorProps) {
   // between Log in (anonymous) and Log out (authenticated).
   const entries: readonly MenuEntry[] = authenticated
     ? [
-      { id: 'settings', label: t('menuSettings'), icon: <IconSettingsOutline16 size={16} /> },
+      { id: 'settings', label: t('menuSettings'), icon: <IconSettingsOutlineRegular size={16} /> },
       { type: 'separator', id: 'sep' },
-      { id: 'logout', label: t('menuLogout'), icon: <IconCloseOutline16 size={16} />, danger: true },
+      { id: 'logout', label: t('menuLogout'), icon: <IconCloseOutlineRegular size={16} />, danger: true },
     ]
     : [
-      { id: 'settings', label: t('menuSettings'), icon: <IconSettingsOutline16 size={16} /> },
+      { id: 'settings', label: t('menuSettings'), icon: <IconSettingsOutlineRegular size={16} /> },
       { type: 'separator', id: 'sep' },
-      { id: 'login', label: t('menuLogin'), icon: <IconUserOutline16 size={16} /> },
+      { id: 'login', label: t('menuLogin'), icon: <IconUserOutlineRegular size={16} /> },
     ]
 
   const button = (
@@ -130,7 +130,7 @@ export function LoginIndicator(props: LoginIndicatorProps) {
       aria-expanded={menuOpen}
       onClick={() => { setMenuOpen(open => !open) }}
     >
-      <IconUserOutline16 className={css.icon} size={16} />
+      <IconUserOutlineRegular className={css.icon} size={16} />
       {wide && <span className={css.label}>{label}</span>}
     </button>
   )

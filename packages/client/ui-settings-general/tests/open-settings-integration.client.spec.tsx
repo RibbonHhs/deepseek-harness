@@ -44,8 +44,6 @@ function mountSettingsRoot() {
   const useSessions = ((select: (s: unknown) => unknown) => select({
     phase: 'ready' as const, current: 's', byId: { s: { blank: false } },
   })) as never
-  const useSessionPendingInteraction = ((select: (s: Map<string, unknown>) => Map<string, unknown>) =>
-    select(new Map())) as never
   const useWorkspaces = ((select: (s: never) => unknown) => select(undefined as never)) as never
   const props: SettingsRootComponentProps = {
     wide: true,
@@ -54,7 +52,6 @@ function mountSettingsRoot() {
     useConnectionState,
     useOnboardingSteps,
     useSessions,
-    useSessionPendingInteraction,
     useWorkspaces,
     useSections,
     renderSlot,

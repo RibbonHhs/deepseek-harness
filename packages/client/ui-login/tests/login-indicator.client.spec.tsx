@@ -48,7 +48,10 @@ function mount(props: {
       onOpenSettings={props.onOpenSettings ?? (() => {})}
       t={t}
       useSessions={neverHook}
-      useSessionPendingInteraction={neverHook}
+      useSessionStatus={neverHook}
+      useSessionRetainInfo={neverHook}
+      usePanelInfo={neverHook}
+      useResource={neverHook}
       useWorkspaces={neverHook}
       renderSlot={neverHook}
     />

@@ -233,9 +233,6 @@
     - id: cordis-client-runner
       name: '@deepseek-ai/dsh-cordis-client-runner'
 
-    - id: ui-prompt-manager
-      name: '@deepseek-ai/dsh-client-ui-prompt-manager'
-
     - id: ui-theme
       name: '@deepseek-ai/dsh-client-ui-theme'
 
@@ -255,13 +252,6 @@
     # no host activator.
     - id: ui-login
       name: '@deepseek-ai/dsh-client-ui-login'
-
-    # MCP servers settings: top-level settings.section entry "MCP servers" with
-    # CRUD over the `mcp-servers` namespace. The host-side activator
-    # (@deepseek-ai/dsh-mcp-servers-activator, in the base bundle) reads the
-    # same namespace and instantiates mcp-client plugins for enabled entries.
-    - id: ui-mcp-servers
-      name: '@deepseek-ai/dsh-client-ui-mcp-servers'
 
     - id: ui-renderer
       name: '@deepseek-ai/dsh-client-ui-renderer'

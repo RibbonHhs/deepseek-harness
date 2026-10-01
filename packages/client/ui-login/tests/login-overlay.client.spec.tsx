@@ -52,7 +52,10 @@ function mountOverlay(initial: LoginOpenSnapshot = { open: true }) {
       close={close}
       t={t}
       useSessions={neverHook}
-      useSessionPendingInteraction={neverHook}
+      useSessionStatus={neverHook}
+      useSessionRetainInfo={neverHook}
+      usePanelInfo={neverHook}
+      useResource={neverHook}
       useWorkspaces={neverHook}
       renderSlot={neverHook}
     />
