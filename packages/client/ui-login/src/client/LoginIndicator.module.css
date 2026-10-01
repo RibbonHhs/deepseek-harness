@@ -1,0 +1,67 @@
+/* Sidebar footer indicator — geometry mirrors the Settings trigger row at
+   packages/client/ui-settings-general/src/client/SettingsRoot.module.css.
+   42px tall, 12px-radius, 8px gap, transparent fill. The rail mode swaps
+   to the 36x36 circle pattern that matches the other rail controls
+   (figma rail spec). The button doubles as a menu trigger (aria-haspopup
+   "menu"); the open state adds a tinted background to signal the
+   popover is anchored to this row. */
+
+.indicator {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 42px;
+  margin: 0;
+  padding: 0 10px 0 8px;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+  color: var(--dsw-alias-label-primary);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  text-align: left;
+}
+
+.indicator:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.indicatorOpen {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.icon {
+  flex: none;
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Rail mode: same 36x36 circle box as the other rail controls (figma
+   rail spec). Centered icon, hidden label, anonymous copy retained as
+   the accessible name. */
+.rail {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.indicatorAuthenticated {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}

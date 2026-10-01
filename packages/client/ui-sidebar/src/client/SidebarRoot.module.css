@@ -570,22 +570,34 @@
   padding-left: 0;
 }
 
-/* Footer seats: additive actions stack above Settings. Each occupant owns its
-   button geometry and hover chrome. */
+/* Footer seats: the original Settings trigger is now reachable through
+   the login menu's "Settings" entry (ui-login registers it as a popover
+   item that calls the OpenSettingsService owned by ui-settings-general).
+   The settingsArea stays in the DOM as a stable mount seat for the
+   SettingsRoot trigger row, but the seat itself is visually hidden — the
+   footerActions occupant is the sole visible footer button. */
 .footArea {
   flex: none;
   display: flex;
   flex-direction: column;
 }
 
-.settingsArea,
+.settingsArea {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .footerActions {
   flex: none;
   min-width: 0;
   width: 100%;
-}
-
-.footerActions {
   display: flex;
 }
 
@@ -593,7 +605,6 @@
   align-items: center;
 }
 
-.collapsed .settingsArea,
 .collapsed .footerActions {
   display: flex;
   justify-content: center;
