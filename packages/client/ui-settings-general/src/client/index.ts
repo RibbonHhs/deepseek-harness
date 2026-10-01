@@ -37,6 +37,7 @@ import { DeveloperToolsRow, type DeveloperToolsRowInjected } from './DeveloperTo
 import { SettingsDocumentAction } from './SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from './SettingsDocumentAction.tsx'
 import { SettingsDocumentStore } from './settings-document-store.ts'
+import { createOpenSettingsService, type OpenSettingsService } from './open-settings-service.ts'
 import { en, zh, type SettingsKey } from './locales.ts'
 
 export type {
@@ -48,12 +49,26 @@ export type {
 export type { SettingsDocumentActionInjected, SettingsDocumentActionProps } from './SettingsDocumentAction.tsx'
 export type { SettingsDocumentState } from './settings-document-store.ts'
 export { SettingsDocumentStore } from './settings-document-store.ts'
+export type { OpenSettingsService } from './open-settings-service.ts'
 export type { SettingsKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Shell chrome + shell-owned General section copy. */
     settings: SettingsKey
+  }
+}
+
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /**
+     * Sidebar → settings-panel open intake. Owned by this plugin; sibling
+     * sidebar occupants (ui-login's footer menu, extension buttons) call
+     * `ctx.settingsUI.openSettings()` to flip the panel open without any DOM
+     * dispatch, and SettingsRoot subscribes through the inject face to keep
+     * its local `open` state in sync.
+     */
+    settingsUI: OpenSettingsService
   }
 }
 
@@ -109,6 +124,11 @@ export function apply(ctx: ClientContext): void {
       hooks: { snapshot: documentController.store },
     })
   ctx.effect(() => () => { documentController?.dispose() }, 'ui-settings-general: document action directory')
+  // Settings-panel open intake. One service instance shared by every
+  // subscriber (currently only SettingsRoot), so a buffered request fires into
+  // the right subscriber on mount without coordination overhead.
+  const openSettings = createOpenSettingsService()
+  ctx.provide('settingsUI', openSettings)
   // The settings shell: this package occupies the sidebar-owned hole and
   // declares the settings slots. Ledger → nav-row projection as an observable
   // source (uSES contract: getSnapshot returns the cached rows until the
@@ -171,6 +191,10 @@ export function apply(ctx: ClientContext): void {
         subscribe: listener => ctx.slots.subscribe('settings.onboarding', listener),
       },
     },
+    // Open intake wired straight into the service above. Stable identity
+    // across renders (closure over the same service), so SettingsRoot's
+    // effect only runs once and the disposer cleanly detaches on unmount.
+    subscribeOpenSettings: listener => openSettings.subscribe(listener),
   })
   ctx.slots.inject('sidebar.settings', () => {
     const shellHandle = createSettingsShellStore()

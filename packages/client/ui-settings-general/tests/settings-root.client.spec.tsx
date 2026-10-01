@@ -129,6 +129,10 @@ function mount({
       return select(current)
     },
     renderSlot,
+    // No cross-plugin open requests fire during these tests; the no-op
+    // subscription keeps SettingsRoot's intake quiet without dragging in a
+    // real service instance.
+    subscribeOpenSettings: () => () => {},
   }
   const view = render(<SettingsRoot {...props} />)
   const bump = (next: Row[]) => {

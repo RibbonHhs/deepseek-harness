@@ -9,6 +9,13 @@
  * the onboarding coordinator mounts exactly one ordered registrant while the
  * sessions-derived empty-Hero fact is active. Visible dialog chrome belongs
  * to the step, so a mounted-but-deciding step paints nothing here.
+ *
+ * The shell also subscribes to the cross-plugin open intake owned by this
+ * plugin (`subscribeOpenSettings` on the inject face): ui-login's popover
+ * and any sibling sidebar occupant call `ctx.settingsUI.openSettings()` to
+ * flip the panel open without DOM dispatch, and the listener below drives
+ * `actions.open()`. The store already owns the open flag, so the dispatch
+ * round-trip is what makes the panel actually render.
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -112,7 +119,7 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
 export function SettingsRoot(props: SettingsRootComponentProps) {
   const {
     wide, reconnect, useConnectionState, useSections, useOnboardingSteps, useSessions, renderSlot, t,
-    useDesktopUpdate, openDesktopUpdate, useStore, actions, useShortcuts,
+    useDesktopUpdate, openDesktopUpdate, useStore, actions, useShortcuts, subscribeOpenSettings,
   } = props
   const { open, activeId } = useStore(state => state)
   const shortcut = useShortcuts(rows => rows.find(row => row.id === 'settings.open'))
@@ -122,6 +129,15 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   const [showRecovery, setShowRecovery] = useState(false)
   const [holdConnecting, setHoldConnecting] = useState(false)
   const connectingShownAt = useRef<number | undefined>(undefined)
+
+  // Wire the cross-plugin open intake: ui-login's popover (or any other
+  // sidebar occupant) calls ctx.settingsUI.openSettings(); the service delivers
+  // it to this listener which dispatches `actions.open()`. The store owns the
+  // open flag, so the dispatch is what makes the panel actually render.
+  // The effect depends on `subscribeOpenSettings` so it re-subscribes if the
+  // inject face is ever replaced (e.g. an HMR cycle); the old disposer cleanly
+  // detaches the previous subscription.
+  useEffect(() => subscribeOpenSettings(() => { actions.open() }), [subscribeOpenSettings, actions])
 
   // The ledger tick keeps the nav rows fresh: registrants re-register with
   // freshly localized text on locale change, and the trigger/header/close

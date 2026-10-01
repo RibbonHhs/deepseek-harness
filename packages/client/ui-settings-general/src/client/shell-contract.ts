@@ -36,7 +36,13 @@ export interface SettingsOnboardingStep {
 /**
  * Registrant-private injected share of the settings shell (assembled in
  * apply): connection state and ledger projections arrive as hook-compartment
- * sources, while the reconnect command remains a plain callback.
+ * sources, while the reconnect command remains a plain callback. The
+ * `subscribeOpenSettings` link is the panel's intake: any sibling sidebar
+ * occupant (ui-login's footer menu, an extension's custom button, etc.) calls
+ * `ctx.settingsUI.openSettings()` to flip the panel open without DOM dispatch,
+ * and SettingsRoot wires that intent into its local `open` state through this
+ * subscription. Buffered requests fire immediately on subscribe so a click
+ * delivered before the shell mounts is not lost.
  */
 export type SettingsRootInjected = {
   /** Request the current shell-owned update action. */
@@ -55,6 +61,12 @@ export type SettingsRootInjected = {
     /** settings.onboarding ledger projected into coordinator order. */
     onboardingSteps: HostObservable<readonly SettingsOnboardingStep[]>
   }
+  /**
+   * Subscribe to open requests (e.g. ui-login's "Settings" menu entry).
+   * Returns a disposer; the listener fires whenever an open request is
+   * delivered after the subscription is active.
+   */
+  subscribeOpenSettings: (listener: () => void) => () => void
 }
 
 /**
