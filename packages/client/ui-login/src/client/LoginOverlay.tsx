@@ -26,7 +26,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import clsx from 'clsx'
 import { loginStore, type LoginState } from './store.ts'
-import { identityTranslator, type Translator } from './translator.ts'
+import type { Translator } from './translator.ts'
 import css from './LoginOverlay.module.css'
 
 /** Engine instance type for the login store. */
@@ -89,13 +89,12 @@ function formatTimestamp(ts: number): string {
 export function LoginOverlay(props: LoginOverlayProps) {
   const controller = props.controller
   const close = props.close ?? (() => {})
-  const t = (props.t ?? identityTranslator) as Translator
-  const useOpen = props.useOpen as unknown as
-    | (<S>(selector: (s: LoginOpenSnapshot) => S) => S)
-    | undefined
-  const useSnapshot = props.useSnapshot as unknown as
-    | (<S>(selector: (s: LoginState) => S) => S)
-    | undefined
+  // oxlint-disable-next-line no-unnecessary-type-assertion
+  const t = props.t as Translator
+  // oxlint-disable-next-line no-unnecessary-type-assertion
+  const useOpen = props.useOpen as (<S>(selector: (s: LoginOpenSnapshot) => S) => S) | undefined
+  // oxlint-disable-next-line no-unnecessary-type-assertion
+  const useSnapshot = props.useSnapshot as (<S>(selector: (s: LoginState) => S) => S) | undefined
 
   // Call every hook on every render (Rules of Hooks). The selectors
   // are no-ops when their source returns the cached snapshot, so an

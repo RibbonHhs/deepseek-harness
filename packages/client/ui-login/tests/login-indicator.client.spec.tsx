@@ -6,16 +6,16 @@ import type { ReactElement } from 'react'
 import { LoginIndicator } from '../src/client/LoginIndicator.tsx'
 import { loginStore } from '../src/client/store.ts'
 import { en } from '../src/client/locales.ts'
+import type { Translator } from '../src/client/translator.ts'
 
-const t: (key: keyof typeof en | string, params?: Record<string, unknown>) => string =
-  (key, params) => {
-    const template = (en as Record<string, string>)[key] ?? key
-    if (params === undefined) return template
-    return Object.entries(params).reduce(
-      (acc, [name, value]) => acc.replace(`{${name}}`, String(value)),
-      template,
-    )
-  }
+const t: Translator = (key, params) => {
+  const template = (en as Record<string, string>)[key as string] ?? (key as string)
+  if (params === undefined) return template
+  return Object.entries(params).reduce(
+    (acc, [name, value]) => acc.replace(`{${name}}`, String(value)),
+    template,
+  )
+}
 
 afterEach(() => {
   cleanup()

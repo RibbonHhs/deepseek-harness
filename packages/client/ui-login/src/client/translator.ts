@@ -9,8 +9,8 @@
  * structurally compatible with the framework-injected `t`.
  */
 
-import type { en } from './locales.ts'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 
-export type Translator = (key: keyof typeof en | string, params?: Record<string, unknown>) => string
+export type Translator = TranslateNS<'login'>
 
 export const identityTranslator: Translator = key => key

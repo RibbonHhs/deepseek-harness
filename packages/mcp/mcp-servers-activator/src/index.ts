@@ -1,23 +1,26 @@
 /**
  * Host-side activator for the `mcp-servers` settings namespace. Reads the
- * section on startup and again on every `settings/updated` emission, then
- * reconciles: for every enabled entry, spawn one
- * `@deepseek-ai/dsh-mcp-client` plugin instance, disposed on disable.
+ * section on startup and again on every `settings/document-updated`
+ * emission, then reconciles: for every enabled entry, spawn one
+ * `@deepseek-ai/dsh-mcp-client` plugin instance; dispose on disable,
+ * removal, or apply failure.
  *
- * The schema is owned by `@deepseek-ai/dsh-client-ui-mcp-servers` (the
- * UI half registers it with `ctx.settings`). The activator only
- * observes — it does not register, since the namespace can only be
- * registered once across the loaded tree.
+ * The schema is owned by `@deepseek-ai/dsh-client-ui-mcp-servers` (its
+ * host apply declares a permissive volatile root on `ctx.settings`).
+ * The activator only observes — it never registers, since the namespace
+ * can only be declared once across the loaded tree, and the
+ * `SettingsForms` service owns writes.
  *
  * Schema types are imported as `import type` so the activator does not
  * pull the UI runtime into the host bundle; the compiled JS has zero
- * reference to the ui-mcp-servers package.
+ * reference to the ui-mcp-servers package apart from the type-level
+ * declaration.
  *
  * @module @deepseek-ai/dsh-mcp-servers-activator
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 // Side-effect: declaration-merges `ctx.tools` onto Context for this file.
 import type {} from '@deepseek-ai/dsh-tools'
 // Side-effect: the mcp-client plugin's namespace import provides `name`,
@@ -28,8 +31,8 @@ import * as mcpClient from '@deepseek-ai/dsh-mcp-client'
 import type { Config as McpClientConfig } from '@deepseek-ai/dsh-mcp-client'
 import type { McpServerRecord, McpServersSection, McpServerStatus } from '@deepseek-ai/dsh-client-ui-mcp-servers'
 
-/** Settings namespace identifier. Same literal as the UI half registers. */
-const MCP_SERVERS_NAMESPACE = settingsNamespace('mcp-servers')
+/** Settings namespace identifier. Same literal the UI host half declares. */
+const MCP_SERVERS_NAMESPACE = 'mcp-servers' as SettingsNamespace
 
 /** Local copy of the runtime status type — keeps the activator free of UI-side dependencies. */
 type StatusState = McpServerStatus['state']
@@ -57,11 +60,11 @@ export function _resetActiveChildrenForTests(): void {
 /** Live records: serverId → the mcp-client fiber spawned for it. */
 interface ActiveChild {
   /** The cordis Fiber returned by `ctx.plugin(mcpClient, config)`. Its
-     `dispose` tears down the mcp-client instance and detaches every effect. */
+   * `dispose` tears down the mcp-client instance and detaches every effect. */
   fiber: { dispose: () => Promise<void> }
   /** The record that drove activation. Used to detect config-only edits
-     that must trigger a re-spawn (cordis plugins can't re-apply config
-     in place). */
+   * that must trigger a re-spawn (cordis plugins can't re-apply config
+   * in place). */
   record: McpServerRecord
 }
 const activeChildren = new Map<string, ActiveChild>()
@@ -82,7 +85,7 @@ function logf(level: 'info' | 'error', parent: Context, format: string, ...args:
     const rendered = msg.replace(/%([sdo])/g, (_match, kind) => {
       const v = args[i++]
       if (v === undefined) return ''
-      if (kind === 's') return String(v)
+      if (kind === 's') return JSON.stringify(v)
       if (kind === 'd') return String(Math.trunc(Number(v)))
       return JSON.stringify(v)
     })
@@ -90,8 +93,8 @@ function logf(level: 'info' | 'error', parent: Context, format: string, ...args:
     // Best-effort: also forward to the cordis logger so structured
     // exporters (when one exists) see the same event.
     try {
-      const l = (parent.logger as unknown as (name: string) => unknown)
-      const named = l?.('mcp-servers-activator') as unknown as Record<string, ((f: string, ...a: unknown[]) => void) | undefined> | undefined
+      const l = parent.logger as (name: string) => unknown
+      const named = l('mcp-servers-activator') as Record<string, ((f: string, ...a: unknown[]) => void) | undefined> | undefined
       named?.[level]?.(msg, ...args)
     } catch {
       // ignore — no structured exporter wired
@@ -101,42 +104,95 @@ function logf(level: 'info' | 'error', parent: Context, format: string, ...args:
   }
 }
 
-const info = (parent: Context) => (format: string, ...args: unknown[]) => logf('info', parent, format, ...args)
-const err = (parent: Context) => (format: string, ...args: unknown[]) => logf('error', parent, format, ...args)
+const info = (parent: Context) => (format: string, ...args: unknown[]): void => { logf('info', parent, format, ...args) }
+const err = (parent: Context) => (format: string, ...args: unknown[]): void => { logf('error', parent, format, ...args) }
+
+/**
+ * Read the current `mcp-servers` section. `SettingsForms.describe()`
+ * walks every plugin entry once and returns descriptors keyed by their
+ * loader-declared `entry.options.id`; the descriptor's `value` is the
+ * resolved section already projected by `volatileForm` and unwrapped
+ * from any `Volatile` wrappers via `plainConfig`. We pin to the
+ * `SettingsForms` service type so the call resolves under TS without
+ * losing the host-side declaration merge of `ctx.settings`.
+ * @param parent - the host root context.
+ * @returns The current section as a plain object (empty when the
+ * namespace has never been written to).
+ */
+function readSection(parent: Context): McpServersSection {
+  const forms = parent.settings
+  const descriptor = forms.describe().find(d => d.ns === MCP_SERVERS_NAMESPACE)
+  return (descriptor?.value as McpServersSection | undefined) ?? {}
+}
+
+/**
+ * Read the current section revision. `SettingsForms` bumps the
+ * revision on every accepted write, so this value tells `mutate()`
+ * whether the live doc moved past the version we last observed.
+ * @param parent - the host root context.
+ * @returns The current revision, or `undefined` if the namespace is
+ * not indexed (rare — would mean the host entry never activated).
+ */
+function readRevision(parent: Context): number | undefined {
+  return parent.settings.describe().find(d => d.ns === MCP_SERVERS_NAMESPACE)?.revision
+}
 
 /**
  * Write one record's `status` block back into the settings namespace.
  * The activator owns this field; the UI reads it but never edits it
  * directly. Settings persists the value to disk, so the UI sees the
- * last-seen status across restarts (acceptable — the activator overwrites
- * it on the next reconcile).
+ * last-seen status across restarts (acceptable — the activator
+ * overwrites it on the next reconcile).
  *
- * The write is best-effort: any error is logged but does not crash the
- * activator or block the lifecycle transition that triggered it.
+ * The write is best-effort: any error is logged but does not crash
+ * the activator or block the lifecycle transition that triggered it.
+ * `SettingsConflictError` is the common path — a parallel UI edit
+ * advanced the revision while we were assembling this status — so we
+ * re-read and retry up to 3 times before giving up. Anything else is
+ * logged as a hard failure and returned.
+ *
+ * The edit uses `mutate()` with a single `set` op on `[id, 'status']`
+ * rather than `replace()` of the whole section: a wholesale replace
+ * would clobber any field the user is editing concurrently.
+ * `isVolatilePath(schema, [id, 'status'])` returns true because the
+ * plugin entry's Config is `z.dict(...).default({}).volatile()` — the
+ * whole tree is volatile.
+ *
  * @param parent - the host root context.
  * @param id - server id whose status is being written.
  * @param state - new lifecycle state.
  * @param error - error message; only meaningful for `state === 'failed'`.
  */
 async function writeStatus(parent: Context, id: string, state: StatusState, error?: string): Promise<void> {
-  try {
-    const current = parent.settings.get(MCP_SERVERS_NAMESPACE) as McpServersSection | undefined
-    const record = current?.[id]
-    if (record === undefined) return
-    const status: McpServerStatus = error === undefined
-      ? { state, lastChangedAt: Date.now() }
-      : { state, error, lastChangedAt: Date.now() }
-    const next: McpServersSection = { ...current, [id]: { ...record, status } }
-    await parent.settings.update(MCP_SERVERS_NAMESPACE, next)
-  } catch (e) {
-    process.stderr.write(`[mcp-servers-activator:error] failed to write status for "${id}": ${String(e)}\n`)
+  const status: McpServerStatus = error === undefined
+    ? { state, lastChangedAt: Date.now() }
+    : { state, error, lastChangedAt: Date.now() }
+  const MAX_ATTEMPTS = 3
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const revision = readRevision(parent)
+    if (revision === undefined) return
+    try {
+      await parent.settings.mutate(
+        MCP_SERVERS_NAMESPACE,
+        [{ op: 'set', path: [id, 'status'], value: status }],
+        revision,
+      )
+      return
+    } catch (e) {
+      // SettingsConflictError: re-read the current revision and try
+      // again. Anything else is a hard failure — log and bail.
+      if (e instanceof Error && e.message.includes('changed since it was read')) continue
+      process.stderr.write(`[mcp-servers-activator:error] failed to write status for "${id}": ${String(e)}\n`)
+      return
+    }
   }
+  process.stderr.write(`[mcp-servers-activator:error] status write for "${id}" gave up after ${MAX_ATTEMPTS} retries\n`)
 }
 
 /**
- * Read the current `mcp-servers` section and reconcile to the desired set.
- * Called once at startup and again on every `settings/updated` emission for
- * this namespace.
+ * Read the current `mcp-servers` section and reconcile to the desired
+ * set. Called once at startup and again on every
+ * `settings/document-updated` emission for this namespace.
  * @param parent - the host root context.
  */
 export function apply(parent: Context): void {
@@ -145,30 +201,28 @@ export function apply(parent: Context): void {
 
   log('loaded; reconciling initial state')
 
-  // 1) Initial reconciliation: covers the case where settings.yaml already
-  //    lists enabled entries before the activator loads.
-  const initial = parent.settings.get(MCP_SERVERS_NAMESPACE) as McpServersSection | undefined
-  const initialIds = Object.keys(initial ?? {})
-  log('settings namespace has %d record(s): %s', initialIds.length, initialIds.join(', ') || '(none)')
-  reconcile(parent, initial ?? {}, log, logErr)
+  // 1) Initial reconciliation: covers the case where settings.yaml
+  //    already lists enabled entries before the activator loads.
+  reconcile(parent, readSection(parent), log, logErr)
 
   // 2) Subscribe to per-namespace updates. The handler is a plain
-  //    `ctx.on` listener — `ctx.effect` would also work, but the listener
-  //    shape here is a single async no-op, so the simpler form keeps the
-  //    apply body tight.
-  parent.on('settings/updated', (ns, next) => {
+  //    `ctx.on` listener — `ctx.effect` would also work, but the
+  //    listener shape here is a single async no-op, so the simpler
+  //    form keeps the apply body tight. The event payload is
+  //    `(ns, revision)`; the new section value is obtained by
+  //    re-reading via `readSection()`.
+  parent.on('settings/document-updated', (ns, _revision) => {
     if (ns !== MCP_SERVERS_NAMESPACE) return
-    const nextIds = Object.keys((next ?? {}) as McpServersSection)
-    log('settings/updated for mcp-servers; %d record(s): %s', nextIds.length, nextIds.join(', ') || '(none)')
-    reconcile(parent, (next ?? {}) as McpServersSection, log, logErr)
+    reconcile(parent, readSection(parent), log, logErr)
   })
 }
 
 /**
- * Compute the desired set, dispose children that are no longer desired,
- * and spawn children for newly desired ids. A config edit (command, url,
- * env, headers, args) forces a re-spawn because cordis plugins bind their
- * config at apply time and have no in-place reload.
+ * Compute the desired set, dispose children that are no longer
+ * desired, and spawn children for newly desired ids. A config edit
+ * (command, url, env, headers, args) forces a re-spawn because
+ * cordis plugins bind their config at apply time and have no
+ * in-place reload.
  * @param parent - the host root context.
  * @param current - latest section snapshot.
  * @param log - info log helper bound to the parent context.
@@ -194,25 +248,26 @@ function reconcile(
   }
   log('reconcile: desired=%d, active=%d', desired.size, activeChildren.size)
 
-  // Remove: id missing from desired, no longer enabled, or failed validation.
+  // Remove: id missing from desired, no longer enabled, or failed
+  // validation.
   for (const [id, entry] of activeChildren) {
     if (!desired.has(id)) {
       log('stopping "%s"', id)
       void entry.fiber.dispose()
       activeChildren.delete(id)
-      // Mark disabled in the record so the UI badge flips immediately.
-      // We only flip if the record still exists (a parallel delete may
-      // have removed it); missing-record cases leave no status to
-      // overwrite.
-      if ((current as McpServersSection)[id] !== undefined) {
+      // Mark disabled in the record so the UI badge flips
+      // immediately. We only flip if the record still exists (a
+      // parallel delete may have removed it); missing-record
+      // cases leave no status to overwrite.
+      if (current[id] !== undefined) {
         void writeStatus(parent, id, 'disabled')
       }
     }
   }
 
-  // Add or replace: spawn a fresh child for each desired id. If we already
-  // host one with the same config, skip — child contexts are not recreated
-  // on idempotent reconciles.
+  // Add or replace: spawn a fresh child for each desired id. If we
+  // already host one with the same config, skip — child contexts
+  // are not recreated on idempotent reconciles.
   for (const [id, record] of desired) {
     const existing = activeChildren.get(id)
     if (existing && recordsEqual(existing.record, record)) {
@@ -250,50 +305,31 @@ function spawnChild(
   const config = buildConfig(record)
   log('spawning "%s" (transport=%s, url=%s)', id, record.transport, record.url ?? record.command ?? '?')
 
-  // The activator's parent context reads the `mcp-servers` settings
-  // namespace through `dsh-settings`, which freezes the resolved value
-  // (`deepFreeze`) to keep user edits and component renders from
-  // mutating shared state. The mcp-client schema iterates ownKeys when
-  // validating the config; frozen objects carry non-enumerable hidden
-  // metadata that schemastery's iteration picks up but that doesn't
-  // appear in the schema's expected fields, so the union validation
-  // fails with a generic "expected ... but got ..." error. A JSON
-  // round-trip drops the hidden metadata while keeping the wire data
-  // identical (the resolved value is plain JSON-compatible), so the
-  // mcp-client validator accepts the round-tripped copy. The same
-  // applies to the `record` itself when it passes through deeper
-  // framework layers.
-  //
-  // Until schemastery gains a frozen-input skip or the settings seam
-  // hands out a non-frozen resolved value for read-only consumers,
-  // this round-trip is the only path that keeps both the freeze
-  // invariant and the schema invariant alive.
-  const cleanConfig: McpClientConfig = JSON.parse(JSON.stringify(config))
-
-  // Status lifecycle: `pending` while the fiber is in flight, `connected`
-  // once the apply resolves, `failed` if it rejects. The activator writes
-  // the status back into the same record via `ctx.settings.update`, so
-  // the existing settings transport carries it to the UI half — no new
-  // wire channel needed. `recordsEqual` strips `status` so the status
-  // write doesn't trigger a self-induced reconcile loop.
+  // Status lifecycle: `pending` while the fiber is in flight,
+  // `connected` once the apply resolves, `failed` if it rejects.
+  // The activator writes the status back into the same record via
+  // `ctx.settings.mutate`, so the existing settings transport carries
+  // it to the UI half — no new wire channel needed.
+  // `recordsEqual` strips `status` so the status write doesn't
+  // trigger a self-induced reconcile loop.
   void writeStatus(parent, id, 'pending')
 
   try {
-    const fiber = parent.plugin(mcpClient, cleanConfig)
+    const fiber = parent.plugin(mcpClient, config)
     activeChildren.set(id, { fiber, record })
     // `fiber.await()` resolves the wrapped Thenable, but it THROWS
     // when the fiber settled with `_error` (cordis's
     // `if (this._error) throw this._error` in the await() loop).
-    // That throw lands in the second `then` slot, so a failed apply
-    // shows up here — not in the success path. The `_error` check
-    // is defense in depth: some lifecycle paths land on the success
-    // slot but still leave `_error` set, and we want those to write
-    // 'failed' too.
+    // That throw lands in the second `then` slot, so a failed
+    // apply shows up here — not in the success path. The `_error`
+    // check is defense in depth: some lifecycle paths land on the
+    // success slot but still leave `_error` set, and we want those
+    // to write 'failed' too.
     void fiber.then(
       () => {
-        const fiberErr = (fiber as unknown as { _error: unknown })._error
+        const fiberErr = (fiber as unknown as { _error?: unknown })._error
         if (fiberErr !== undefined) {
-          const msg = fiberErr instanceof Error ? fiberErr.message : String(fiberErr)
+          const msg = fiberErr instanceof Error ? fiberErr.message : JSON.stringify(fiberErr)
           logErr('"%s" failed to start: %s', id, msg)
           void writeStatus(parent, id, 'failed', msg)
           activeChildren.delete(id)
@@ -316,10 +352,11 @@ function spawnChild(
 }
 
 /**
- * Translate one settings-side record into the mcp-client config shape. The
- * discriminator is `transport`; both stdio and streamable-http require
- * their respective payload (command / url). isValid() runs first so we
- * know `command` / `url` are present here.
+ * Translate one settings-side record into the mcp-client config
+ * shape. The discriminator is `transport`; both stdio and
+ * streamable-http require their respective payload (command / url).
+ * `isValid()` runs first so we know `command` / `url` are present
+ * here.
  * @param record - the configured MCP server registration.
  * @returns the mcp-client plugin config.
  */
@@ -356,9 +393,10 @@ function buildConfig(record: McpServerRecord): McpClientConfig {
 }
 
 /**
- * Structural validity check. Same checks the UI half runs, mirrored here
- * so an externally-edited settings.yaml (or a host-side programmatic
- * write) can't smuggle a half-configured entry into the activator.
+ * Structural validity check. Same checks the UI half runs, mirrored
+ * here so an externally-edited settings.yaml (or a host-side
+ * programmatic write) can't smuggle a half-configured entry into the
+ * activator.
  * @param record - the configured MCP server registration.
  * @returns whether the activator should start an mcp-client for it.
  */
@@ -367,10 +405,7 @@ function isValid(record: McpServerRecord): boolean {
   if (record.transport === 'stdio') {
     return typeof record.command === 'string' && record.command.length > 0
   }
-  if (record.transport === 'streamable-http') {
-    return typeof record.url === 'string' && record.url.length > 0
-  }
-  return false
+  return typeof record.url === 'string' && record.url.length > 0
 }
 
 /**
@@ -378,17 +413,16 @@ function isValid(record: McpServerRecord): boolean {
  * config. The `status` block is excluded because the activator writes
  * it back into settings — including it would make the activator see
  * its own status writes as a config change and respawn the fiber on
- * every transition. The settings namespace has a `~standard` validator
- * (not the mcp-client schema) so this relaxed equality is only ever
- * consulted by the activator's reconcile path.
+ * every transition.
  * @param a - one record snapshot.
  * @param b - another record snapshot.
  * @returns whether mcp-client config would be byte-identical.
  */
 function recordsEqual(a: McpServerRecord, b: McpServerRecord): boolean {
-  // Strip the runtime status block from both sides before comparing;
-  // the activator is the sole writer of `status`, and including it would
-  // defeat the idempotent-reconcile guarantee below.
+  // Strip the runtime status block from both sides before
+  // comparing; the activator is the sole writer of `status`, and
+  // including it would defeat the idempotent-reconcile guarantee
+  // below.
   const { status: _a, ...aRest } = a
   const { status: _b, ...bRest } = b
   void _a; void _b

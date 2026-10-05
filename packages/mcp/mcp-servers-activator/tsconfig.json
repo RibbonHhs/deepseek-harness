@@ -24,7 +24,7 @@
       "path": "../mcp-client"
     },
     {
-      "path": "../../client/ui-mcp-servers"
+      "path": "../../client/ui-mcp-servers/tsconfig.host.json"
     }
   ]
 }

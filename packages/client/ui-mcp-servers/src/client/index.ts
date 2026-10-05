@@ -71,7 +71,7 @@ export function createMcpServersStore(ctx: ClientContext): McpServersStoreType {
   const controller = new McpServersStore(scope)
   // Load eagerly so the first render reads a ready state.
   void controller.load()
-  ctx.effect(() => () => { void controller.dispose() }, 'ui-mcp-servers: store lifecycle')
+  ctx.effect((): (() => void) => { controller.dispose(); return () => {} }, 'ui-mcp-servers: store lifecycle')
   // Settings updates propagate through the describe mirror; the store
   // already subscribes internally, so no extra subscription is needed
   // here. Kept as a reference so future edits don't accidentally drop

@@ -54,7 +54,7 @@ export type PromptPickerPopoverProps = Partial<InjectFace<PromptPickerPopoverInj
  * @returns the React tree.
  */
 export function PromptPickerPopover(props: PromptPickerPopoverProps) {
-  const t = (props.t ?? identityTranslator) as Translator
+  const t = props.t ?? identityTranslator
   const items = props.items ?? []
   const { onClose, onInsert } = props
   const [query, setQuery] = useState('')

@@ -15,7 +15,7 @@ import {
   IconSearchOutlineRegular, IconTrashOutlineRegular, Input, Modal, Pill,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import type { PromptsStore, PromptsState, PromptListItem } from './store.ts'
+import type { PromptsStore, PromptListItem } from './store.ts'
 import type { PromptRecord } from '../schema.ts'
 import { PromptEditor, identityTranslator, type Translator } from './PromptEditor.tsx'
 import styles from './PromptsSection.module.css'
@@ -44,9 +44,8 @@ export type PromptsSectionProps = Partial<InjectFace<PromptsSectionInjected> & P
  */
 export function PromptsSection(props: PromptsSectionProps) {
   const controller = props.controller
-  const t = (props.t ?? identityTranslator) as Translator
-  const useSnapshot = props.useSnapshot as unknown as
-    (<S>(selector: (s: PromptsState) => S) => S) | undefined
+  const t = props.t ?? identityTranslator
+  const useSnapshot = props.useSnapshot
 
   if (controller === undefined || useSnapshot === undefined) {
     return (

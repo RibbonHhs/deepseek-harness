@@ -57,7 +57,7 @@ type FieldError = 'id' | 'title' | 'body' | null
  * @returns the React tree.
  */
 export function PromptEditor(props: PromptEditorProps) {
-  const t = (props.t ?? identityTranslator) as Translator
+  const t = props.t ?? identityTranslator
   const { open, onClose, initialId, initialRecord, controller } = props
   const isUpdate = initialId.length > 0
 

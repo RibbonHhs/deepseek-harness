@@ -12,7 +12,36 @@ import Hmr from '@deepseek-ai/dsh-hmr'
 import DefaultModel from '@deepseek-ai/dsh-agent-default-model'
 import Settings from '../src/index.ts'
 
-export async function configurationFixture(options: { schema?: z; apply?: (ctx: Context, config: unknown) => void; hmr?: boolean } = {}) {
+export interface ConfigurationFixtureRow {
+  /** Loader entry id; must be unique within the bundle. */
+  id: string
+  /** Built-in name as referenced from the bundle's `cordis.patch.yml`. */
+  name: string
+  /** Per-row config payload applied at load time. */
+  config?: unknown
+}
+
+export interface ConfigurationFixtureOptions {
+  /** Override the Probe plugin's Config schema (default: the canonical
+   * mixed-volatile schema). */
+  schema?: z
+  /** Override the Probe plugin's apply function. */
+  apply?: (ctx: Context, config: unknown) => void
+  /** Append extra rows to the test bundle's `cordis.patch.yml`. Each
+   * row's `name` must resolve to a built-in declared in
+   * `extraBuiltins` (or one of the four default built-ins:
+   * `cordis:editor`, `cordis:settings`, `cordis:model`, `cordis:probe`). */
+  extraRows?: readonly ConfigurationFixtureRow[]
+  /** Extra built-ins keyed by name (the value used in `row.name`). The
+   * built-in's `Config` schema must declare at least one volatile
+   * field for `SettingsForms.describe()` to admit it as a settings
+   * source. */
+  extraBuiltins?: Record<string, { Config: z; apply: (ctx: Context, config: unknown) => void }>
+  /** Disable HMR (default: HMR is enabled). */
+  hmr?: boolean
+}
+
+export async function configurationFixture(options: ConfigurationFixtureOptions = {}) {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'settings-config-')))
   const dir = join(home, 'profiles', 'test')
   onTestFinished(() => { rmSync(home, { recursive: true, force: true }) })
@@ -21,13 +50,15 @@ export async function configurationFixture(options: { schema?: z; apply?: (ctx: 
   mkdirSync(bundle, { recursive: true })
   writeFileSync(join(home, 'package.json'), '{"name":"test-installation"}\n')
   writeFileSync(join(bundle, 'package.json'), JSON.stringify({ name: 'test-bundle', version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' } } }))
-  writeFileSync(join(bundle, 'cordis.patch.yml'), JSON.stringify([{ insert: [
+  const rows: ConfigurationFixtureRow[] = [
     { id: 'config-editor', name: 'cordis:editor' },
     { id: 'settings', name: 'cordis:settings' },
     { id: 'default-model', name: 'cordis:model', config: { provider: 'test', model: 'original' } },
     { id: 'first', name: 'cordis:probe', config: { ordinary: 'fixed', token: 'private' } },
     { id: 'second', name: 'cordis:probe', config: { ordinary: 'second' } },
-  ] }]))
+  ]
+  for (const row of options.extraRows ?? []) rows.push(row)
+  writeFileSync(join(bundle, 'cordis.patch.yml'), JSON.stringify([{ insert: rows }]))
   writeFileSync(join(dir, 'cordis.yml'), '[]\n')
   const profile: ProfileContext = {
     name: 'test', startedBundles: ['test-bundle'], dir, patchPath: join(dir, 'cordis.patch.yml'),
@@ -43,6 +74,7 @@ export async function configurationFixture(options: { schema?: z; apply?: (ctx: 
       ctx.provide('appReady', { onReady: (listener: () => void) => { listener(); return () => {} } })
       Object.assign(ctx.loader.builtins, {
         editor: ConfigEditor, settings: Settings, model: DefaultModel, probe: Probe,
+        ...(options.extraBuiltins ?? {}),
       })
     })
     onTestFinished(async () => { await ctx.fiber.dispose() })

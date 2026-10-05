@@ -15,7 +15,7 @@ import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { McpServerRecord } from '../schema.ts'
 import { MCP_SERVER_ID_PATTERN } from '../schema.ts'
 import type { McpServersStore } from './store.ts'
-import { identityTranslator, type Translator } from './translator.ts'
+import type { Translator } from './translator.ts'
 import styles from './McpServerEditor.module.css'
 
 /** Field name of a validation failure surfaced inline. */
@@ -82,7 +82,7 @@ function stringifyMap(record: Record<string, string> | undefined, separator: '='
  * @returns the React tree.
  */
 export function McpServerEditor(props: McpServerEditorProps) {
-  const t = (props.t ?? identityTranslator) as Translator
+  const t = props.t
   const { open, onClose, initialId, initialRecord, controller } = props
   const isUpdate = initialId.length > 0
 

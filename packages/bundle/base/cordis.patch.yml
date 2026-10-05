@@ -13,6 +13,14 @@
 # driven); the grouping is for readers.
 
 - insert:
+    - id: tool-plugin-manager
+      name: '@deepseek-ai/dsh-plugin-manager/tools'
+      disabled: true
+
+    - id: plugin-manager
+      name: '@deepseek-ai/dsh-plugin-manager'
+      disabled: !!js "!ctx.get('profileContext')"
+
     - id: timer
       name: '@deepseek-ai/cordis-plugin-timer'
 
@@ -84,17 +92,14 @@
     - id: llm-retry
       name: '@deepseek-ai/dsh-llm-retry'
 
-    # User-settings document (`$DSH_HOME/settings.yaml`, hot-reloaded): a
-    # `llm-deepseek:` or `llm-pi-ai:` section there overrides the adapter entries
-    # below without a restart, and is what the web Models page writes.
+    # Live configuration forms persist through the launcher's profile.
+    - id: config-editor
+      name: '@deepseek-ai/dsh-config-editor'
+      disabled: !!js "!ctx.get('profileContext')"
+
     - id: settings
-      name: '@deepseek-ai/dsh-settings-file'
-      # dsh-settings-file was removed upstream when the volatile forms
-      # patch landed (commit 601d6761e4, #4587). The id stays reserved so
-      # the loader can tell user-input files apart from inherited profile
-      # patches, but the entry is disabled until a replacement provider
-      # is wired back through base.
-      disabled: true
+      name: '@deepseek-ai/dsh-settings'
+      disabled: !!js "!ctx.get('profileContext')"
 
     # Credential sources: inherited environment over the managed
     # `$DSH_HOME/.credentials.yaml`, with project and user `.env` fallbacks.
@@ -378,12 +383,11 @@
         toolName: subagent_fork
         backgroundMode: one-shot
 
-    - id: workflow-worker-thread
-      name: '@deepseek-ai/dsh-workflow-worker-thread'
-      # The src/ for this package is not tracked in this fork (and the
-      # base bundle still pulls it in). Disable until the package is
-      # restored or replaced.
-      disabled: true
+    - id: ptc-runtime
+      name: '@deepseek-ai/dsh-ptc-runtime-node'
+
+    - id: workflow-ptc
+      name: '@deepseek-ai/dsh-workflow-ptc'
       config:
         provider: spawn
 
@@ -475,6 +479,15 @@
         searchTimeoutMs: 60000
 
     # ── rows every mode mounts, whose values each overlay may state ──────────────
+
+    # MCP server registry: the namespace plugin entry provides the Config
+    # schema SettingsForms indexes; the activator spawns one mcp-client fiber
+    # per enabled record.
+    - id: mcp-servers
+      name: '@deepseek-ai/dsh-client-ui-mcp-servers'
+
+    - id: mcp-servers-activator
+      name: '@deepseek-ai/dsh-mcp-servers-activator'
 
     # The tool registry. Presentation mode is a deployment choice; omitting it here
     # keeps the schema default (native).

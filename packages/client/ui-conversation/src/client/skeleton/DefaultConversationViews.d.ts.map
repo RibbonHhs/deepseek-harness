@@ -1,0 +1,1 @@
+{"version":3,"file":"DefaultConversationViews.d.ts","sourceRoot":"","sources":["DefaultConversationViews.tsx"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,4BAA4B,EAAE,MAAM,sBAAsB,CAAA;AAKxE;;;;;GAKG;AACH,wBAAgB,wBAAwB,CAAC,EACvC,IAAI,EAAE,UAAU,EAAE,eAAe,EAAE,oBAAoB,EAAE,QAAQ,EAAE,YAAY,EAAE,QAAQ,EAAE,OAAO,EAClG,UAAU,EAAE,eAAe,EAAE,QAAQ,EAAE,cAAc,GACtD,EAAE,4BAA4B,sCA+B9B"}

@@ -1,61 +1,74 @@
 /**
- * Host half of the MCP server registry plugin. The host process is the
- * source of truth for the `mcp-servers` settings namespace: it registers
- * the schema on `ctx.settings` so the file-backed settings provider
- * persists CRUD writes to `settings.yaml`. Browser-side, the client half
- * binds the namespace through `ctx.settingsScope` and exposes a React
- * store on top; the host-side `@deepseek-ai/dsh-mcp-servers-activator`
- * reads the same namespace and instantiates a `mcp-client` plugin per
- * enabled entry.
+ * Host half of the MCP server registry plugin. Mounts the `mcp-servers`
+ * namespace as a real cordis plugin entry so `@deepseek-ai/dsh-settings`
+ * (`SettingsForms`) discovers the Config schema and indexes the entry
+ * with `ns = 'mcp-servers'`. The host-side activator
+ * (`@deepseek-ai/dsh-mcp-servers-activator`) reads the section through
+ * `ctx.settings.describe()` and writes status updates via
+ * `ctx.settings.mutate()`; the browser half lives under `src/client/`
+ * and binds the same namespace through `ctx.settingsScope`.
  *
- * The plugin is intentionally registration-only: the editor UI and
- * activator reconciliation all live elsewhere — this package owns the
- * schema shape and the persistence contract both sides agree on.
+ * The plugin entry's Config is intentionally a permissive volatile root:
+ * the section is a free-form `{ id → record }` map owned by the wire
+ * schema (`./schema.ts`), and every nested path is volatile by
+ * inheritance. `isVolatilePath(schema, ['<id>', 'status'])` returns true
+ * for every id; `volatileForm(schema)` returns the schema unchanged so
+ * `SettingsForms.describe()` admits this entry.
+ *
+ * Schema types are re-exported so the host-side activator and the
+ * browser store can `import type` them from the package root without
+ * reaching into `src/`.
+ *
+ * @module @deepseek-ai/dsh-client-ui-mcp-servers
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
-// Side-effect: declaration-merges `ctx.settings` onto Context so the
-// `apply` body can call `ctx.settings.register` under TS.
+// Side-effect: declaration-merges `ctx.settings` onto Context.
 import type {} from '@deepseek-ai/dsh-settings'
-import { McpServersSectionSchema } from './schema.ts'
-// Schema types re-exported below for activator / client consumption.
+import z from '@deepseek-ai/schemastery'
 
-// The namespace is defined in `./namespace.ts` (so the client bundle
-// can pull the value without dragging `@deepseek-ai/dsh-settings` into
-// the browser). Host-side we additionally expose the branded
-// SettingsNamespace for `ctx.settings.register`.
-const _BRANDED = settingsNamespace('mcp-servers')
 export { MCP_SERVERS_NAMESPACE } from './namespace.ts'
 
-/** Cordis plugin name. */
-export const name = 'ui-mcp-servers'
-
-/** Plugin has no hard service dependency — `ctx.settings` is the injection point. */
-export const inject = ['settings']
-
-// Re-export the wire schema types so the host-side activator
-// (`@deepseek-ai/dsh-mcp-servers-activator`) can `import type` them
-// through the package root without having to reach into `src/`. The
-// status type is included so the activator can write status updates
-// without taking on its own schema definitions.
+/** Re-export the wire schema types so the host-side activator and the
+ * browser store can `import type` them through the package root. The
+ * status type is included so the activator can write status updates
+ * without re-defining its own status shape. */
 export type {
   McpServerRecord, McpServersSection, McpServerStatus, McpServerState,
 } from './schema.ts'
 
-// Reference the branded value so the unused-binding lint doesn't fire.
-void _BRANDED
+/** Plugin entry Config schema. The dict lets `SettingsForms` index
+ * arbitrary user-supplied record ids, and `.volatile()` makes every
+ * nested path editable live. The `.default({})` keeps the section
+ * initial value a plain object so the activator's first `describe()`
+ * returns a JSON-compatible map even before the user adds any records. */
+export const Config = z.dict(z.any()).default({}).volatile()
+
+/** Cordis plugin name. Loader diagnostics use this string; the
+ * SettingsNamespace index key (`'mcp-servers'`) is set separately by
+ * the bundle patch row id. The two are intentionally identical here so
+ * a missing row id surfaces as a missing namespace instead of a silent
+ * misroute. */
+export const name = 'mcp-servers'
+
+/** The activator depends on `ctx.settings` being mounted before this
+ * entry applies (the `configure({ auto: false }, ctx.fiber)` call below
+ * must run on a live SettingsForms instance). */
+export const inject = ['settings']
 
 /**
- * Register the `mcp-servers` settings namespace. The base layer's
- * settings provider (typically `dsh-settings-file`) persists every
- * write to `settings.yaml`; absent a provider, the schema is still
- * registered and reads return an empty section.
+ * Mount the `mcp-servers` namespace as a settings source of truth.
+ *
+ * The host entry opts out of auto-generated settings pages: the editor
+ * surface is registered by the browser half (the dedicated
+ * `McpServersSection` slot in the web settings list). This entry exists
+ * only so `SettingsForms` indexes the namespace and the activator can
+ * observe it.
+ *
  * @param ctx - host root context.
  */
 export function apply(ctx: Context): void {
-  // The schema accepts any object; per-entry records are validated on
-  // read by the schemastery coercion. The activator picks up changes
-  // through `ctx.settings.subscribe(MCP_SERVERS_NAMESPACE, ...)`.
-  ctx.settings.register(_BRANDED, McpServersSectionSchema as never)
+  ctx.inject(['settings'], (child) => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+  })
 }

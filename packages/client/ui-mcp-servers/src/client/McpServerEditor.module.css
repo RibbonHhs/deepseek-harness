@@ -1,8 +1,15 @@
 /* Override Modal's hardcoded 380px dialog width. Same specificity as the
    shared .dialog rule, so source-order wins; align with the editor's
-   content density (transport tabs + URL/command inputs fit at 720px). */
+   content density (transport tabs + URL/command inputs fit at 720px).
+   The `max-height` caps the dialog against the viewport so the inner
+   editor can scroll instead of pushing the modal off-screen on small
+   viewports. The Modal primitives don't put `min-height: 0` on their
+   content flex chain, so we size the editor against an absolute cap
+   (90vh minus header/footer overhead) and rely on `overflow-y: auto`
+   inside the editor rather than on a shrinkable flex child. */
 .editorDialog {
   width: min(720px, 100%);
+  max-height: 90vh;
 }
 
 .editor {
@@ -10,12 +17,37 @@
   flex-direction: column;
   gap: 12px;
   width: 100%;
+  /* `border-box` so a `width: 100%` child with padding stays inside the
+     editor instead of overflowing 12% past it (4+8 padding on each
+     side of the textarea). Without this, the env/headers/args textareas
+     spill out of the dialog on narrow viewports. */
+  box-sizing: border-box;
+  /* Absolute cap: 90vh minus the dialog's header (≈60px), footer (≈64px),
+     padding (24px), and the dialog's own 20px gap. Leaves the body content
+     capped at roughly 56vh on a 1080-tall viewport, with a `overflow-y:
+     auto` inner edge for the field stack. */
+  max-height: calc(90vh - 180px);
+  /* `overflow-x: hidden` pins long unwrapped input values (URLs, env rows)
+     so the editor never grows a horizontal scrollbar. `overflow-y` keeps
+     the vertical scroll when the field stack exceeds the cap. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .editorField {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Field-row children (the `Input` primitive renders an `inline-flex`
+     span and the native textarea both default to content-width) need
+     to stretch to the dialog's content width so input boxes never
+     overflow the dialog on small viewports. */
+  align-items: stretch;
+}
+
+.editorField > * {
+  width: 100%;
 }
 
 .editorLabel {
@@ -47,6 +79,9 @@
   font-family: var(--dsw-font-mono);
   font-size: 13px;
   resize: vertical;
+  /* `border-box` so the 16px of horizontal padding is included in the
+     100% width instead of overflowing the editor's content box. */
+  box-sizing: border-box;
 }
 
 .editorTextarea:focus {

@@ -33,7 +33,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import clsx from 'clsx'
 import { useState } from 'react'
 import { loginStore, type LoginState } from './store.ts'
-import { identityTranslator, type Translator } from './translator.ts'
+import type { Translator } from './translator.ts'
 import css from './LoginIndicator.module.css'
 
 /** Engine instance type for the login store. */
@@ -84,10 +84,9 @@ export function LoginIndicator(props: LoginIndicatorProps) {
   const controller = props.controller
   const onOpen = props.onOpen ?? (() => {})
   const onOpenSettings = props.onOpenSettings ?? noopOpenSettings
-  const t = (props.t ?? identityTranslator) as Translator
-  const useSnapshot = props.useSnapshot as unknown as
-    | ((selector: (s: LoginState) => LoginState) => LoginState)
-    | undefined
+  // oxlint-disable-next-line no-unnecessary-type-assertion
+  const t = props.t as Translator
+  const useSnapshot = props.useSnapshot as ((selector: (s: LoginState) => LoginState) => LoginState) | undefined
 
   // Hooks first (Rules of Hooks); the early-return comes after.
   const state: LoginState = useSnapshot !== undefined

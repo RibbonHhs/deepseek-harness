@@ -79,7 +79,7 @@ export function createPromptsStore(ctx: ClientContext): PromptsStoreType {
   const controller = new PromptsStore(scope)
   // Load eagerly so the first render reads a ready state.
   void controller.load()
-  ctx.effect(() => () => { void controller.dispose() }, 'ui-prompt-manager: store lifecycle')
+  ctx.effect((): (() => void) => { controller.dispose(); return () => {} }, 'ui-prompt-manager: store lifecycle')
   // Settings updates propagate through the describe mirror; the store already
   // subscribes internally, so no extra subscription is needed here.
   void connection
@@ -96,8 +96,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-prompt-manager: dictionaries')
 
   const controller = createPromptsStore(ctx)
-  const t = ctx.locale.bind(NS) as
-    PromptsSectionInjected['t'] & PromptInsertButtonInjected['t']
+  const t = ctx.locale.bind(NS) as PromptsSectionInjected['t']
 
   // Bind each entry into its target slot. Both targets are declared by other
   // packages; the slots.inject indirection waits on the declaration without

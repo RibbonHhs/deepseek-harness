@@ -11,6 +11,7 @@ import type {} from '@deepseek-ai/dsh-settings/types'
 import { SettingsSchemaService } from './schema.ts'
 import { ConfigForms } from './config-form.ts'
 import { SettingsDescribeMirror } from './settings-mirror.ts'
+import { SettingsScopeService } from './settings-scope.ts'
 
 export type {
   SettingsLauncherOwnerProps, SettingsGeneralItemOwnerProps, SettingsHeaderOwnerProps, SettingsOnboardingOwnerProps,
@@ -23,6 +24,9 @@ export type { SchemaNode } from './schema.ts'
 export type {
   SettingsDescribeFace, SettingsDescribeView, SettingsMirrorSnapshot,
 } from './settings-mirror.ts'
+export type {
+  SettingsScope, SettingsScopeService, SettingsScopeSnapshot, SettingsScopeSpec, SettingsScopeStatus,
+} from './settings-scope.ts'
 
 /**
  * Required services: the Remote namespace the mirror reads through and the
@@ -50,5 +54,12 @@ export function apply(ctx: Context): void {
     void mirror.ensure()
     return () => { for (const dispose of disposers) dispose() }
   }, 'ui-settings: describe mirror invalidations')
+  // Mount `settingsScope` BEFORE `configForms` so the loader's concurrent
+  // fiber mount sees the SettingsScopeService impl on `ctx.settingsScope`
+  // for any sibling plugin that injects it (e.g. ui-mcp-servers). Without
+  // this ordering, the sibling's `_checkImpl` runs while settingsScope is
+  // still absent and parks in PENDING — a state cordis fiber inertia does
+  // not recover from in this boot path.
+  new SettingsScopeService(ctx, { mirror })
   new ConfigForms(ctx, { mirror, schema, persistence })
 }

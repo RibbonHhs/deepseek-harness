@@ -13,7 +13,7 @@
 import { useCallback, useState } from 'react'
 import { Button, IconListPenOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { PromptListItem, PromptsStore, PromptsState } from './store.ts'
+import type { PromptsStore } from './store.ts'
 import { PromptPickerPopover } from './PromptPickerPopover.tsx'
 import { identityTranslator, type Translator } from './PromptEditor.tsx'
 import styles from './PromptInsertButton.module.css'
@@ -52,9 +52,8 @@ export type PromptInsertButtonProps = Partial<
  */
 export function PromptInsertButton(props: PromptInsertButtonProps) {
   const controller = props.controller
-  const t = (props.t ?? identityTranslator) as Translator
-  const useSnapshot = props.useSnapshot as unknown as
-    (<S>(selector: (s: PromptsState) => S) => S) | undefined
+  const t = props.t ?? identityTranslator
+  const useSnapshot = props.useSnapshot
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const handleInsert = useCallback((text: string) => {
@@ -92,7 +91,7 @@ export function PromptInsertButton(props: PromptInsertButtonProps) {
       </Button>
       {pickerOpen && (
         <PromptPickerPopover
-          items={items as readonly PromptListItem[]}
+          items={items}
           t={t}
           onClose={() => { setPickerOpen(false) }}
           onInsert={handleInsert}

@@ -4,48 +4,63 @@
  * Covers:
  * - Initial reconcile on apply: spawns enabled entries, skips invalid
  *   ones, records status `pending` → `connected`.
- * - settings/updated add: spawns the new entry.
- * - settings/updated remove: disposes the matching fiber.
- * - settings/updated disable (enabled: false): disposes the fiber.
- * - settings/updated config change (command / url edit): respawns.
- * - settings/updated status-only change (activator's own write): does
- *   NOT trigger a respawn (loop prevention via `recordsEqual`).
+ * - settings/document-updated add: spawns the new entry.
+ * - settings/document-updated remove: disposes the matching fiber.
+ * - settings/document-updated disable (enabled: false): disposes the
+ *   fiber.
+ * - settings/document-updated config change (command / url edit):
+ *   respawns.
+ * - settings/document-updated status-only change (activator's own
+ *   write): does NOT trigger a respawn (loop prevention via
+ *   `recordsEqual`).
  * - Failed apply: writes status `failed` with the message.
  *
- * Strategy: mock `@deepseek-ai/dsh-mcp-client` so its apply() returns a
- * promise we can resolve / reject from the test — no real network.
- * Stand up an in-memory `MemorySettings` provider (mirrors the
- * pattern from `packages/core/agent-loop/tests/settings.spec.ts`) so
- * the activator sees a real settings transport without disk I/O.
- *
- * The activator writes back status updates via `ctx.settings.update`.
- * Tests poll with `setTimeout(0)` against the live resolved value
- * (`ctx.settings.get(NAMESPACE)`), which always reflects the most
- * recent write — including the activator's status updates that the
- * test bench never sees directly.
+ * Strategy:
+ * - Mock `@deepseek-ai/dsh-mcp-client` so its apply() returns a
+ *   promise we can resolve / reject from the test — no real network.
+ * - Use `configurationFixture` from `@deepseek-ai/dsh-settings` to
+ *   stand up a real profile/loader/settings pipeline with an extra
+ *   `mcp-servers` row backed by a permissive volatile probe.
+ * - Drive edits through `ctx.settings.mutate` /
+ *   `ctx.settings.replace`, observe through
+ *   `ctx.settings.describe()`.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { settingsNamespace, SettingsProvider, type SettingsNamespace } from '@deepseek-ai/dsh-settings'
+import { configurationFixture } from '../../../settings/settings/tests/configuration-fixture.ts'
+import type { SettingsDescriptor } from '@deepseek-ai/dsh-settings'
 import type { McpServerRecord, McpServersSection } from '@deepseek-ai/dsh-client-ui-mcp-servers'
 import { apply as activatorApply, _resetActiveChildrenForTests } from '../src/index.ts'
 
-const NAMESPACE = settingsNamespace('mcp-servers')
+const NAMESPACE = 'mcp-servers'
 
 // vi.hoisted runs before any module-level code; use it to define the
 // mock factory and a stack of pending-apply gates that the tests
 // pop from via `lastHandle()`.
 const { mockMcpClient, handles } = vi.hoisted(() => {
-  type Gate = { promise: Promise<undefined>; resolve(): void }
+  type Gate = {
+    promise: Promise<undefined>
+    resolve(value: undefined | PromiseLike<undefined>): void
+    reject(reason: unknown): void
+  }
   const stack: Gate[] = []
 
   const fakeApply = (_ctx: Context, _config: unknown): Promise<undefined> => {
-    const gate: Gate = { promise: Promise.resolve(undefined), resolve: () => undefined }
-    let resolver!: () => void
-    gate.promise = new Promise<undefined>((resolve) => { resolver = resolve })
+    const gate: Gate = {
+      promise: Promise.resolve(undefined),
+      resolve: () => undefined,
+      reject: () => undefined,
+    }
+    let resolver!: (value: undefined | PromiseLike<undefined>) => void
+    let rejecter!: (reason: unknown) => void
+    gate.promise = new Promise<undefined>((resolve, reject) => {
+      resolver = resolve
+      rejecter = reject
+    })
     gate.resolve = resolver
+    gate.reject = rejecter
     stack.push(gate)
     return gate.promise
   }
@@ -75,76 +90,51 @@ const { mockMcpClient, handles } = vi.hoisted(() => {
 
 vi.mock('@deepseek-ai/dsh-mcp-client', () => mockMcpClient)
 
-// Minimal in-test schema: matches the production McpServersSectionSchema
-// (a permissive object) so the settings resolver returns the raw
-// document without rejecting test records.
-const TestSectionSchema: z<McpServersSection> = z.object({})
-
-// ---- In-memory settings provider ----
-
-class MemorySettings extends SettingsProvider {
-  doc: Record<string, unknown>
-
-  constructor(ctx: Context, initial?: Record<string, unknown>) {
-    super(ctx)
-    this.doc = structuredClone(initial ?? {})
-  }
-
-  get writable(): boolean {
-    return true
-  }
-
-  protected load(): Promise<Record<string, unknown>> {
-    return Promise.resolve(structuredClone(this.doc))
-  }
-
-  protected persist(ns: SettingsNamespace, section: Record<string, unknown>): Promise<void> {
-    this.doc = { ...this.doc, [ns]: structuredClone(section) }
-    return Promise.resolve()
-  }
+// Minimal permissive probe so SettingsForms can index `mcp-servers` as
+// a volatile dict. The activator's mutate() lands on `[<id>, 'status']`
+// or `[<id>]`, both of which `isVolatilePath` allows because the root
+// is volatile.
+const McpProbe = {
+  Config: z.dict(z.any()).default({}).volatile(),
+  apply: (_ctx: Context, _config: unknown): void => {},
 }
+
+// ---- Test bench ----
 
 interface TestBench {
   ctx: Context
   readSection(): McpServersSection
-  writeSection(section: McpServersSection): Promise<void>
-  /** Fire a raw settings update without waiting for the activator's
-     listener to settle. Used by the loop-prevention test that expects
-     zero additional applies. */
-  rawWrite(section: McpServersSection): Promise<void>
+  writeRecord(id: string, record: McpServerRecord): Promise<void>
+  removeRecord(id: string): Promise<void>
+  replaceSection(section: McpServersSection): Promise<void>
   flush(): Promise<void>
 }
 
-function flushMicrotasks(): Promise<void> {
-  // Three microtask rounds are enough for the activator's chain
-  // (settings.write → on('settings/updated') → reconcile → recordsEqual
-  // check). Adding margin prevents the suite from racing the next
-  // test's reconcile.
-  return (async () => {
-    await Promise.resolve()
-    await Promise.resolve()
-    await Promise.resolve()
-  })()
-}
-
-/**
- * Wait for a predicate to be true. Used to synchronize tests with
- * the activator's async lifecycle. Macrotask-based polling is more
- * reliable than microtask spinning when waiting on `setImmediate`-gated
- * cordis fiber activation.
- */
 function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
   return new Promise((resolve, reject) => {
     const start = Date.now()
     const tick = (): void => {
-      if (predicate()) return resolve()
+      if (predicate()) { resolve(); return }
       if (Date.now() - start > timeoutMs) {
-        return reject(new Error(`waitFor: predicate not satisfied within ${timeoutMs}ms`))
+        reject(new Error(`waitFor: predicate not satisfied within ${timeoutMs}ms`))
+        return
       }
       setTimeout(tick, 0)
     }
     tick()
   })
+}
+
+function flushMicrotasks(): Promise<void> {
+  // Three microtask rounds are enough for the activator's chain
+  // (settings.write → on('settings/document-updated') → reconcile →
+  // recordsEqual check). Adding margin prevents the suite from racing
+  // the next test's reconcile.
+  return (async () => {
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+  })()
 }
 
 function stdioRecord(overrides: Partial<McpServerRecord> = {}): McpServerRecord {
@@ -177,10 +167,8 @@ function lastHandle(): { resolve: () => void; reject: (e: unknown) => void } {
   const gate = handles.pop()
   if (gate === undefined) throw new Error('expected a pending apply handle but the stack is empty')
   return {
-    resolve: () => gate.gate.resolve(),
-    reject: (err) => {
-      gate.gate.reject(err instanceof Error ? err : new Error(String(err)))
-    },
+    resolve: (): void => { gate.resolve(undefined) },
+    reject: (err): void => { gate.reject(err instanceof Error ? err : new Error(String(err))) },
   }
 }
 
@@ -190,30 +178,27 @@ function pendingApplies(): number {
 }
 
 async function bootWithAccess(initial?: McpServersSection): Promise<TestBench> {
-  const ctx = new Context()
-  // The settings provider stores one raw user document keyed by
-  // namespace; pass the section under the namespace key so the
-  // activator's `get(NAMESPACE)` call sees it. Production also
-  // registers the schema (the UI half's host apply does this), so the
-  // test bench must mirror that or `get(NAMESPACE)` returns undefined.
-  const doc = initial === undefined ? {} : { [NAMESPACE]: structuredClone(initial) }
-  await ctx.plugin(MemorySettings, doc).await()
-  // The UI host half registers the schema on startup; the activator
-  // only observes. Replicate the registration here so the in-memory
-  // provider resolves the namespace to the same defaults the real
-  // dsh-settings-file provider would. Use a local schemastery schema
-  // — importing the UI package's compiled schema through the package
-  // root hit a Proxy indirection that broke call-as-function in this
-  // test runtime.
-  ctx.settings.register(NAMESPACE, TestSectionSchema as never)
+  const { ctx } = await configurationFixture({
+    hmr: false,
+    extraBuiltins: { 'probe-mcp': McpProbe },
+    extraRows: [{ id: NAMESPACE, name: 'cordis:probe-mcp', config: {} }],
+  })
+  // Settle SettingsForms indexing so the probe's descriptor is live
+  // before the activator mounts.
+  ctx.settings.describe()
+  // Pre-populate the section before the activator mounts so its
+  // initial reconcile observes the records (no SettingsConflict to
+  // contend with because there is no listener yet).
+  if (initial !== undefined) {
+    await ctx.settings.replace(NAMESPACE, initial)
+  }
   activatorApply(ctx)
-  await ctx.fiber.await()
 
   // Wait for the activator to call apply() on every enabled AND valid
-  // record. Records that fail `isValid` are skipped — the test
-  // bench passes a record with `command: undefined` or `url: undefined`
-  // to exercise the skip path; those never produce a pending apply.
-  // The same applies to records with `enabled: false`.
+  // record. Records that fail `isValid` are skipped — the test bench
+  // passes a record with `command: undefined` or `url: undefined` to
+  // exercise the skip path; those never produce a pending apply. The
+  // same applies to records with `enabled: false`.
   const expectedApplies = Object.values(initial ?? {}).filter((r) => {
     if (!r.enabled) return false
     if (r.transport === 'stdio') return typeof r.command === 'string' && r.command.length > 0
@@ -226,16 +211,23 @@ async function bootWithAccess(initial?: McpServersSection): Promise<TestBench> {
     await flushMicrotasks()
   }
 
+  const readSection = (): McpServersSection =>
+    (ctx.settings.describe().find((d: SettingsDescriptor) => d.ns === NAMESPACE)?.value as McpServersSection | undefined) ?? {}
+
   return {
     ctx,
-    // Read through `ctx.settings.get` so we always see the most
-    // recent write — including the activator's status writes.
-    readSection: () => (ctx.settings.get(NAMESPACE) as McpServersSection | undefined) ?? {},
-    writeSection: async (section: McpServersSection) => {
-      await ctx.settings.update(NAMESPACE, section)
+    readSection,
+    writeRecord: async (id, record) => {
+      const rev = ctx.settings.describe().find((d: SettingsDescriptor) => d.ns === NAMESPACE)?.revision
+      await ctx.settings.mutate(NAMESPACE, [{ op: 'set', path: [id], value: record }], rev)
     },
-    rawWrite: async (section: McpServersSection) => {
-      await ctx.settings.update(NAMESPACE, section)
+    removeRecord: async (id) => {
+      const rev = ctx.settings.describe().find((d: SettingsDescriptor) => d.ns === NAMESPACE)?.revision
+      await ctx.settings.mutate(NAMESPACE, [{ op: 'unset', path: [id] }], rev)
+    },
+    replaceSection: async (section) => {
+      const rev = ctx.settings.describe().find((d: SettingsDescriptor) => d.ns === NAMESPACE)?.revision
+      await ctx.settings.replace(NAMESPACE, section, rev)
     },
     flush: flushMicrotasks,
   }
@@ -254,7 +246,7 @@ afterEach(() => {
   // Ensure no leftover gates are dangling between tests.
   if (handles.length > 0) {
     // Defensive: resolve any stragglers so cordis fibers don't hang.
-    for (const gate of handles.splice(0)) gate.gate.resolve()
+    for (const gate of handles.splice(0)) gate.resolve(undefined)
   }
 })
 
@@ -321,19 +313,19 @@ describe('mcp-servers-activator reconcile loop', () => {
     expect(bench.readSection().fs?.status?.error).toContain('ECONNREFUSED')
   })
 
-  it('adds a new entry when settings/updated fires', async () => {
+  it('adds a new entry when settings/document-updated fires', async () => {
     const bench = await bootWithAccess({ fs: stdioRecord() })
     lastHandle().resolve()
     await waitFor(() => bench.readSection().fs?.status?.state === 'connected')
 
-    await bench.writeSection({
+    await bench.replaceSection({
       fs: stdioRecord(),
       web: httpRecord({ id: 'web2', name: 'web2' }),
     })
     lastHandle().resolve()
-    await waitFor(() => bench.readSection().web2?.status?.state === 'connected')
+    await waitFor(() => bench.readSection().web?.status?.state === 'connected')
 
-    expect(bench.readSection().web2?.status?.state).toBe('connected')
+    expect(bench.readSection().web?.status?.state).toBe('connected')
   })
 
   it('removes the fiber when an entry disappears from the section', async () => {
@@ -341,7 +333,7 @@ describe('mcp-servers-activator reconcile loop', () => {
     lastHandle().resolve()
     await waitFor(() => bench.readSection().fs?.status?.state === 'connected')
 
-    await bench.writeSection({})
+    await bench.replaceSection({})
     await waitFor(() => bench.readSection().fs === undefined)
 
     expect(bench.readSection()).toEqual({})
@@ -352,7 +344,7 @@ describe('mcp-servers-activator reconcile loop', () => {
     lastHandle().resolve()
     await waitFor(() => bench.readSection().fs?.status?.state === 'connected')
 
-    await bench.writeSection({ fs: stdioRecord({ enabled: false }) })
+    await bench.replaceSection({ fs: stdioRecord({ enabled: false }) })
     await waitFor(() => bench.readSection().fs?.status?.state === 'disabled')
 
     expect(bench.readSection().fs?.status?.state).toBe('disabled')
@@ -364,9 +356,7 @@ describe('mcp-servers-activator reconcile loop', () => {
     await waitFor(() => bench.readSection().fs?.status?.state === 'connected')
 
     const beforeLastChanged = bench.readSection().fs?.status?.lastChangedAt
-    await bench.writeSection({
-      fs: stdioRecord({ command: 'different-binary' }),
-    })
+    await bench.writeRecord('fs', stdioRecord({ command: 'different-binary' }))
     // The respawn produced a new pending apply (popped by next test).
     lastHandle().resolve()
     await waitFor(
@@ -384,17 +374,18 @@ describe('mcp-servers-activator reconcile loop', () => {
     await waitFor(() => bench.readSection().fs?.status?.state === 'connected')
 
     const beforeCount = pendingApplies()
-    const current = bench.readSection().fs
-    if (current === undefined) throw new Error('expected fs record to be present after connected')
-    await bench.rawWrite({
-      fs: {
-        ...current,
-        status: { state: 'connected', lastChangedAt: Date.now() + 1 },
-      },
-    })
-    // Status-only updates fire `settings/updated`, which the
-    // activator's listener handles. The reconcile path strips
-    // `status` before equality check, so no respawn happens.
+    // Mutate only the status field directly; this is what the
+    // activator itself does for every state transition. The activator
+    // subscribes to `settings/document-updated`, which fires after
+    // every accepted write — so its listener does run, but
+    // `recordsEqual` strips `status` before the comparison, so no
+    // respawn happens.
+    const rev = bench.ctx.settings.describe().find((d: SettingsDescriptor) => d.ns === NAMESPACE)?.revision
+    await bench.ctx.settings.mutate(
+      NAMESPACE,
+      [{ op: 'set', path: ['fs', 'status'], value: { state: 'connected', lastChangedAt: Date.now() + 1 } }],
+      rev,
+    )
     // Settle a few macrotask rounds so any erroneous spawn lands.
     for (let i = 0; i < 5; i++) await new Promise(r => setImmediate(r))
     expect(pendingApplies()).toBe(beforeCount)

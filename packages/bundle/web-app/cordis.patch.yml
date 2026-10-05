@@ -309,6 +309,16 @@
     - id: ui-settings-models
       name: '@deepseek-ai/dsh-client-ui-settings-models'
 
+    # MCP server registry: host entry + activator landed in base (see
+    # `packages/bundle/base/cordis.patch.yml`). The client half below
+    # binds the namespace through `ctx.settingsScope` and registers the
+    # MCP servers settings section so users can CRUD registrations.
+    - id: ui-mcp-servers
+      name: '@deepseek-ai/dsh-client-ui-mcp-servers'
+
+    - id: ui-prompt-manager
+      name: '@deepseek-ai/dsh-client-ui-prompt-manager'
+
     # Plugin management: the sidebar Plugins page installs, enables, disables,
     # and removes the profile's bundles through the `pluginManager` Remote.
     # Without a profile-backed Host it reports itself unavailable.

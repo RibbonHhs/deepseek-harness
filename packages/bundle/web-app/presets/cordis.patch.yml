@@ -82,12 +82,25 @@
             isolate:
               workflowEngine: true
             config:
+              # The host plane (`packages/bundle/web-app/cordis.patch.yml`)
+              # disables every `tool-subagent*` / `workflow-ptc` /
+              # `tool-workflow` / `tool-ralph` row — its `disabled: true`
+              # is the last write wins per row id, so preset-local
+              # declarations of the same ids are silently disabled too,
+              # and the `isolate: { workflowEngine: true }` scope can
+              # never reach `ctx.workflowEngine`. Re-enable the rows
+              # this preset's delegation subtree needs so the
+              # `workflowEngine` scope finds its provider. `tool-ralph`
+              # stays disabled: it's not a workflowEngine dependency.
               - id: tool-subagent-control
                 name: '@deepseek-ai/dsh-tool-subagent-control'
+                disabled: false
               - id: tool-subagent-list-agents
                 name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+                disabled: false
               - id: tool-subagent
                 name: '@deepseek-ai/dsh-tool-subagent'
+                disabled: false
                 config:
                   provider: spawn
                   toolName: subagent
@@ -95,6 +108,7 @@
                   backgroundMode: continuable
               - id: tool-subagent-fork
                 name: '@deepseek-ai/dsh-tool-subagent'
+                disabled: false
                 config:
                   provider: fork
                   toolName: subagent_fork
@@ -117,10 +131,12 @@
                   maxDepth: provider-managed
               - id: workflow-ptc
                 name: '@deepseek-ai/dsh-workflow-ptc'
+                disabled: false
                 config:
                   provider: spawn
               - id: tool-workflow
                 name: '@deepseek-ai/dsh-tool-workflow'
+                disabled: false
               - id: tool-ralph
                 name: '@deepseek-ai/dsh-tool-ralph'
                 disabled: true
@@ -151,4 +167,9 @@
             name: '@deepseek-ai/dsh-tool-present'
           - id: tool-plugin-manager
             name: '@deepseek-ai/dsh-plugin-manager/tools'
-            disabled: !!js "!ctx.get('profileContext')"
+            # Host plane (`packages/bundle/web-app/cordis.patch.yml`)
+            # disables this row, which would silently disable the preset's
+            # local declaration as well. Re-enable so the tool sees the
+            # `pluginManager` provider this preset's delegation subtree
+            # mounts.
+            disabled: false

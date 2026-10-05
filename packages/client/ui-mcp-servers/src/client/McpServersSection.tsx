@@ -18,7 +18,7 @@ import {
   IconTrashOutlineRegular, Input, Modal, Pill,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
-import type { McpServersStore, McpServersState, McpServerListItem } from './store.ts'
+import type { McpServersStore, McpServerListItem } from './store.ts'
 import type { McpServerRecord, McpServerStatus, McpServerState } from '../schema.ts'
 import { McpServerEditor } from './McpServerEditor.tsx'
 import { identityTranslator, type Translator } from './translator.ts'
@@ -95,9 +95,8 @@ function StatusBadge({ record, t }: { record: McpServerRecord; t: Translator }) 
 
 export function McpServersSection(props: McpServersSectionProps) {
   const controller = props.controller
-  const t = (props.t ?? identityTranslator) as Translator
-  const useSnapshot = props.useSnapshot as unknown as
-    (<S>(selector: (s: McpServersState) => S) => S) | undefined
+  const t = props.t ?? identityTranslator
+  const useSnapshot = props.useSnapshot
 
   if (controller === undefined || useSnapshot === undefined) {
     return (
